@@ -59,7 +59,7 @@ int load_problem(
 
     while (true) {
         if (fgets(line, sizeof(line), f) == NULL) break;
-        ret = sscanf(line, "%d %d %lf\n", &cs, &ce, &cv);
+        ret = sscanf_s(line, "%d %d %lf\n", &cs, &ce, &cv);
         if (ret != 3) {
             fprintf(stderr, "invalid input file: %s\n", inputfile);
             fclose(f);
@@ -88,7 +88,7 @@ int main(int argc, char **argv) {
     double beta_start = 0.01;
     double beta_end = 3.0;
     unsigned int seed = 0;        // default system time-based random seed
-    int verbose = 3;
+    int verbose = 7;
 
     chrono::time_point<chrono::system_clock> t0, t1, t2;
     chrono::duration<double> init_time, anneal_time, total_time;

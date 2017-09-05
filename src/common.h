@@ -22,7 +22,7 @@
 typedef signed char     	spin_t;
 #define RAND_T_MAX              UINT32_MAX
 
-#define	MAX_DEGREE	8
+#define	MAX_DEGREE	50
 
 #define RAND_A          16807
 #define PRIME           15485863

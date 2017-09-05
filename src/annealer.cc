@@ -107,7 +107,9 @@ void annealer::random_state(spin_t* destination, int num) {
     uint32_t rand = rng();
     for (int i=0; i<num; ++i) {
         if (i && !(i%32)) rand = rng();
-        destination[i] = ((rand & 1) << 1) - 1;
+        //destination[i] = ((rand & 1) << 1) - 1;
+		destination[i] = (rand & 1);
+		//fprintf(stdout, "%i", destination[i]);
         rand >>= 1;
     }
 }
@@ -200,7 +202,10 @@ void annealer::print_energies(bool verbose)
 {
     if (verbose) std::cout << "energies:" << std::endl;
     if (verbose) std::cout << "------------" << std::endl;
-    for (int i=0; i<num_samples; ++i) std::cout << std::setw(8) << energies[i];
+	for (int i = 0; i < num_samples; ++i) {
+		std::cout << std::setw(8) << energies[i];
+		fprintf(stdout, "\n");
+	}
     if (verbose) std::cout << std::endl << "------------" << std::endl;
     else std::cout << std::endl;
     

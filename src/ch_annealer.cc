@@ -18,6 +18,9 @@
 
 using namespace std;
 
+float biggestchange;
+float biggestpflip;
+float lastgoodflip;
 
 
 /**
@@ -66,6 +69,10 @@ void chimera_annealer::anneal(int num_samples, int num_sweeps, int sweeps_per_be
                 sweep(sample, betas[i]);
             }
         }
+
+		fprintf(stdout, "last improve: %f\n", biggestchange);
+		fprintf(stdout, "last flipped: %f\n", biggestpflip);
+		fprintf(stdout, "last goodflip: %f\n\n", lastgoodflip);
     }
     calculate_energies();
 }
@@ -134,8 +141,20 @@ void chimera_annealer::sweep_taylor(int sample, float beta)
         float x = beta * delta_energies[spin + sample * num_spins] * max_value__1;
         float prob;
 
-        if (x <= 0.0) flip = true;              // always flip when finding a better enegery leve
-        else if (x >= 23.0) flip = false;       // never swip when delta energy is too small
+		if ((spin == 1) && (states[0 + sample * num_spins] == 1) && (states[1 + sample * num_spins] == 0) && (beta > 199) &&
+			(states[2 + sample * num_spins] == 1) && (states[3 + sample * num_spins] == 1) && (states[4 + sample * num_spins] == 0)) {
+			lastgoodflip = beta;
+		}
+
+		if (x <= 0.0) {
+			flip = true;              // always flip when finding a better enegery leve
+			biggestchange = beta;
+			//fprintf(stdout, "improve: %f", beta);
+		}
+		else if (x >= 23.0) {
+			flip = false;       // never swip when delta energy is too small
+			//fprintf(stdout, "large: %f", beta);
+		}
         else {
             prob = 0.0;
             int n = (int)(x * EXP_PRECISION);
@@ -150,19 +169,38 @@ void chimera_annealer::sweep_taylor(int sample, float beta)
             
             uint32_t r;
             get_random(rand_seeds[sample], r);
-            if (prob > (float)r / RAND_T_MAX) flip = true;
+			if (prob > (float)r / RAND_T_MAX) {
+				flip = true;
+				biggestpflip = beta;
+			}
             else flip = false;
         }
         if (flip) {
+
+			//fprintf(stdout, "state: %i flipped on %f\n", states[spin + sample * num_spins], beta);
+			//calculate_energies();
+			//fprintf(stdout, "energy: %f   ", energies[sample]);
+			//fprintf(stdout, "denergy: %f\n\n", delta_energies[spin + sample * num_spins]);
+			//calculate_delta_energies(sample);
             delta_energies[spin + sample * num_spins] = -delta_energies[spin + sample * num_spins];
 
-            spin_t s1 = states[spin + sample * num_spins];
+            spin_t s1 = (2 * states[spin + sample * num_spins]) - 1;
             for (int i = 0; i < degrees[spin]; i++) {
-                spin_t s2 = states[neighbours[i + MAX_DEGREE * (spin)] + sample * num_spins];
+                spin_t s2 = (2*states[neighbours[i + MAX_DEGREE * (spin)] + sample * num_spins]) - 1;
                 delta_energies[neighbours[i + MAX_DEGREE * (spin)] + sample * num_spins] += 
-                        4 * neighbour_couplings[i + MAX_DEGREE * spin] * s1 * s2;
+                        2 * neighbour_couplings[i + MAX_DEGREE * spin] * s1 * s2;
+
             }
-            states[spin + sample * num_spins] *= -1;
+			//states[spin + sample * num_spins] *= -1;
+
+			//fprintf(stdout, "\nbefore : %i", states[spin + sample * num_spins]);
+			states[spin + sample * num_spins] = (states[spin + sample * num_spins] ^ 1);
+
+
+			//fprintf(stdout, "true denergy: %f   ", delta_energies[spin + sample * num_spins]);
+			//calculate_energies();
+			//fprintf(stdout, "finalstate: %i finalenergy: %f\n", states[spin + sample * num_spins], energies[sample]);
+			//fprintf(stdout, " after: %i\n", states[spin + sample * num_spins]);
         }
     }
 }
@@ -211,9 +249,10 @@ void chimera_annealer::calculate_delta_energies(int sample)
         for (int nbr_idx=0; nbr_idx<degrees[spin]; ++nbr_idx){
             int nbr = neighbours[nbr_idx + MAX_DEGREE * spin];
             float nbr_coupling = neighbour_couplings[nbr_idx + MAX_DEGREE * spin];
-            delta_energies[spin + sample * num_spins] += nbr_coupling * states[nbr + sample * num_spins];
+            delta_energies[spin + sample * num_spins] += 2*nbr_coupling * states[nbr + sample * num_spins];
         }
-        delta_energies[spin + sample * num_spins] *= (-2 * states[spin + sample * num_spins]);
+		delta_energies[spin + sample * num_spins] *= ((1 ^ states[spin + sample * num_spins])*2 - 1);
+		//delta_energies[spin + sample * num_spins] *= (1 ^ states[spin + sample * num_spins]);
     }
 }
 
@@ -225,16 +264,23 @@ void chimera_annealer::calculate_energies()
     for (int i=0; i<num_spins; ++i){
         // Calculate energies due to fields.
         for (int sample=0; sample<num_samples; ++sample){
-            energies[sample] += 2 * fields[i] * states[i + sample * num_spins];
+			//fprintf(stdout, "diagonal %i: %f\n", i, fields[i]);
+			//fprintf(stdout, "state %i: %f\n", i, (float) states[i + sample * num_spins]);
+            energies[sample] +=  fields[i] * states[i + sample * num_spins];
         }
         // Calculate energies due to couplers.
         for (int j=0; j<degrees[i]; ++j){
             for (int k=0; k<num_samples; ++k){
+
+				//fprintf(stdout, "off diagonal %i, %i: %f\n", i, neighbours[j + i * MAX_DEGREE], neighbour_couplings[j + MAX_DEGREE * i]);
+				//fprintf(stdout, "neighbor %i: %f\n", neighbours[j + i * MAX_DEGREE], (float) states[neighbours[j + i * MAX_DEGREE] + k * num_spins]);
                 energies[k] += neighbour_couplings[j + MAX_DEGREE * i] * states[i + k * num_spins] * states[neighbours[j + i * MAX_DEGREE] + k * num_spins];
             }
         }
     }
-    for (int k=0; k<num_samples; ++k) energies[k] /= 2;
+
+	//fprintf(stdout, "energy: %f", energies[0]);
+    //for (int k=0; k<num_samples; ++k) energies[k] /= 2;
 }
 
 
